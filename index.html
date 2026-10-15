@@ -114,7 +114,6 @@
       <button class="btn-secondary" onclick="reinitialiserFormEntite()">🔄 Réinitialiser</button>
     </div>
 
-    <!-- FILTRE ENTITÉS -->
     <div class="card">
       <h3>🔍 Filtre des entités</h3>
       <div class="input-group">
@@ -143,7 +142,6 @@
       <button class="btn-secondary" onclick="reinitialiserFormParticipation()">🔄 Réinitialiser</button>
     </div>
 
-    <!-- FILTRE PARTICIPATIONS -->
     <div class="card">
       <h3>🔍 Filtre des participations</h3>
       <div class="input-group">
@@ -223,7 +221,6 @@
       <button class="btn-secondary" onclick="reinitialiserFormFiche()">🔄 Réinitialiser</button>
     </div>
 
-    <!-- FILTRE FICHES -->
     <div class="card">
       <h3>🔍 Recherche fiche mensuelle</h3>
       <div class="input-group"><label>Nom entité</label><input type="text" id="searchFreq" placeholder="Rechercher..."></div>
@@ -512,6 +509,7 @@
       </div>
       <button class="btn-secondary" onclick="rechercherDepouillement()">🔍 Rechercher</button>
       <button class="btn-secondary" onclick="reinitialiserRechercheDep()">🔄 Réinitialiser</button>
+      <button class="btn-primary" onclick="genererReleveEntiteFiltre()" style="background:linear-gradient(135deg,#1976d2,#1565c0)">📄 Relevé fiche par entité</button>
       <div id="resultatRechercheDep"></div>
     </div>
 
@@ -576,4 +574,4 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 </body>
-        </html>
+  </html>
