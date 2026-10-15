@@ -1514,6 +1514,115 @@ function rapportDepGlobal() {
   html += '</tbody><tfoot><tr><td>À TRANSFÉRER</td><td class="num">' + (soldeFC - genFC).toLocaleString() + ' FC</td><td class="num">' + (soldeUSD - genUSD).toLocaleString() + ' $</td></tr></tfoot></table></div>';
   document.getElementById('rapportDepBox').innerHTML = html;
 }
+// ========== RELEVÉ FICHE DÉPOUILLEMENT PAR ENTITÉ ==========
+function releveFicheEntite(entiteNom, mois, annee) {
+  var deps = DB.get('depouillements', []).filter(function(d) { return !d.archived; });
+  var resultats = [];
+  deps.forEach(function(d) {
+    d.entites.forEach(function(e) {
+      var matchNom = !entiteNom || e.nomEntite.toUpperCase().indexOf(entiteNom.toUpperCase()) !== -1;
+      var matchMois = !mois || d.mois === mois;
+      var matchAnnee = !annee || String(d.annee) === annee;
+      if (matchNom && matchMois && matchAnnee) {
+        resultats.push({ entite: e, seance: d });
+      }
+    });
+  });
+  if (!resultats.length) return alert('Aucune fiche trouvée pour cette entité');
+
+  var w = window.open('', '_blank');
+  w.document.write('<html><head><meta charset="UTF-8"><title>Relevé fiche</title><style>');
+  w.document.write('body{font-family:Arial;padding:20px;max-width:900px;margin:auto;color:#222}');
+  w.document.write('.header{text-align:center;border-bottom:3px double #0a6e2c;padding-bottom:15px;margin-bottom:20px}');
+  w.document.write('.logo{width:70px;height:70px;background:#0a6e2c;color:white;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;margin-bottom:10px}');
+  w.document.write('h1{color:#0a6e2c;font-size:18px}h2{color:#0a6e2c;font-size:14px;margin:20px 0 8px;border-left:4px solid #0a6e2c;padding-left:8px}');
+  w.document.write('h3{color:#0a6e2c;font-size:13px;margin:12px 0 6px}');
+  w.document.write('table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}');
+  w.document.write('th{background:#0a6e2c;color:white;padding:6px;text-align:left}');
+  w.document.write('td{padding:6px;border-bottom:1px solid #ddd}td.num{text-align:right}');
+  w.document.write('tfoot td{font-weight:bold;background:#e8f5e9;color:#0a6e2c;border-top:2px solid #0a6e2c}');
+  w.document.write('.info{background:#f9f9f9;padding:10px;border-radius:8px;margin:10px 0;border-left:4px solid #0a6e2c;font-size:12px}');
+  w.document.write('.cat{background:#e8f5e9;padding:6px;border-radius:6px;margin:8px 0;font-weight:600;color:#0a6e2c;font-size:12px}');
+  w.document.write('.recap{background:#fff3e0;padding:12px;border-radius:8px;margin-top:10px;border:2px solid #e65100}');
+  w.document.write('</style></head><body>');
+
+  w.document.write('<div class="header"><div class="logo">EMM</div>');
+  w.document.write('<h1>ÉGLISE MESSIANIQUE MONDIALE</h1>');
+  w.document.write('<p style="color:#666;font-size:12px">EMM MONDIAL — Dépouillement</p>');
+  w.document.write('<h2 style="border:none;text-align:center">RELEVÉ FICHE PAR ENTITÉ</h2></div>');
+
+  var parEntite = {};
+  resultats.forEach(function(r) {
+    var key = r.entite.typeEntite + ' - ' + r.entite.nomEntite;
+    if (!parEntite[key]) parEntite[key] = [];
+    parEntite[key].push(r);
+  });
+
+  var totalGeneralFC = 0, totalGeneralUSD = 0;
+
+  Object.keys(parEntite).forEach(function(key) {
+    var liste = parEntite[key];
+    w.document.write('<h2>🏛️ ' + echapper(key) + '</h2>');
+    w.document.write('<div class="info"><strong>Responsable :</strong> ' + echapper(liste[0].entite.responsable) + '</div>');
+
+    liste.forEach(function(r) {
+      var e = r.entite;
+      var d = r.seance;
+      var s = sumEntiteDep(e);
+      totalGeneralFC += s.soldeFC;
+      totalGeneralUSD += s.soldeUSD;
+
+      w.document.write('<h3>📅 Séance : ' + d.mois + ' ' + d.annee + ' — Phase ' + d.phase + ' (' + fmtDate(d.date) + ')</h3>');
+
+      w.document.write('<table><tbody>');
+      w.document.write('<tr><td>Construction</td><td class="num">' + e.constrFC.toLocaleString() + ' FC</td><td class="num">' + e.constrUSD.toLocaleString() + ' $</td></tr>');
+      w.document.write('<tr><td>Normales</td><td class="num">' + e.normFC.toLocaleString() + ' FC</td><td class="num">' + e.normUSD.toLocaleString() + ' $</td></tr>');
+      w.document.write('</tbody></table>');
+
+      var cats = [];
+      Object.keys(CATEGORIES_OFFRANDES).forEach(function(cat) {
+        if (e[cat] && e[cat].length) cats.push({ cat: cat, arr: e[cat] });
+      });
+      if (cats.length) {
+        w.document.write('<div class="cat">🎁 Offrandes spéciales</div>');
+        cats.forEach(function(item) {
+          var totFC = item.arr.reduce(function(a, o) { return a + o.fc; }, 0);
+          var totUSD = item.arr.reduce(function(a, o) { return a + o.usd; }, 0);
+          w.document.write('<table><thead><tr><th colspan="3" style="background:#4caf50">' + CATEGORIES_OFFRANDES[item.cat] + '</th></tr></thead><tbody>');
+          item.arr.forEach(function(o) {
+            w.document.write('<tr><td>' + echapper(o.nom) + '</td><td class="num">' + o.fc.toLocaleString() + ' FC</td><td class="num">' + o.usd.toLocaleString() + ' $</td></tr>');
+          });
+          w.document.write('</tbody><tfoot><tr><td>TOTAL ' + CATEGORIES_OFFRANDES[item.cat] + '</td><td class="num">' + totFC.toLocaleString() + ' FC</td><td class="num">' + totUSD.toLocaleString() + ' $</td></tr></tfoot></table>');
+        });
+      }
+
+      w.document.write('<table><tfoot>');
+      w.document.write('<tr><td>TOTAL GÉNÉRAL</td><td class="num">' + s.totFC.toLocaleString() + ' FC</td><td class="num">' + s.totUSD.toLocaleString() + ' $</td></tr>');
+      w.document.write('<tr><td>Transport</td><td class="num">- ' + e.transFC.toLocaleString() + ' FC</td><td class="num">- ' + e.transUSD.toLocaleString() + ' $</td></tr>');
+      w.document.write('<tr><td>SOLDE</td><td class="num">' + s.soldeFC.toLocaleString() + ' FC</td><td class="num">' + s.soldeUSD.toLocaleString() + ' $</td></tr>');
+      w.document.write('</tfoot></table>');
+    });
+  });
+
+  w.document.write('<div class="recap">');
+  w.document.write('<strong>🌍 TOTAL GÉNÉRAL (toutes séances) :</strong><br>');
+  w.document.write('<div style="font-size:16px;font-weight:700;color:#0a6e2c;margin-top:6px">' + totalGeneralFC.toLocaleString() + ' FC / ' + totalGeneralUSD.toLocaleString() + ' $</div>');
+  w.document.write('</div>');
+
+  w.document.write('<p style="text-align:center;font-size:11px;color:#888;margin-top:30px">Généré le ' + new Date().toLocaleString('fr-FR') + ' par ' + (currentUser ? currentUser.nom : '') + '</p>');
+  w.document.write('</body></html>');
+  w.document.close();
+  setTimeout(function() { w.print(); }, 600);
+}
+
+// Bouton : générer relevé à partir de la recherche en cours
+function genererReleveEntiteFiltre() {
+  var entite = (document.getElementById('searchDepEntite').value || '').trim();
+  var annee = (document.getElementById('searchDepAnnee').value || '').trim();
+  var mois = document.getElementById('searchDepMois').value;
+  if (!entite && !annee && !mois) return alert('Entrez au moins un critère (entité, année ou mois)');
+  releveFicheEntite(entite, mois, annee);
+}
 
 function rapportDepDetaille() {
   var deps = DB.get('depouillements', []).filter(function(d) { return !d.archived; });
